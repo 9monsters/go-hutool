@@ -9,9 +9,18 @@ const (
 	SPACE           string = " "
 )
 
+// IsBlank return str is all blank
 func IsBlank(str string) bool {
 	if len(str) == 0 {
 		return true
 	}
 	return IsBlankRunes([]rune(str))
+}
+
+// IsEmpty return str is empty
+func IsEmpty(str string) bool {
+	if len(str) == 0 {
+		return true
+	}
+	return false
 }
