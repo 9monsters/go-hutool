@@ -1,0 +1,7 @@
+go 1.19
+
+use (
+	./pkg/hutool-all
+	./pkg/hutool-core
+	./pkg/hutool-jwt
+)

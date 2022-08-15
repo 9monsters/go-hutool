@@ -1,8 +1,8 @@
 package hutool_all
 
 import (
-	_ "github.com/nine-monsters/go-hutool/pkg/hutool-core"
-	_ "github.com/nine-monsters/go-hutool/pkg/hutool-jwt"
+	_ "github.com/nine-monsters/go-hutool/hutool-core"
+	_ "github.com/nine-monsters/go-hutool/hutool-jwt"
 )
 
 type Module struct {
@@ -13,4 +13,5 @@ type Module struct {
 }
 
 func Hutool() {
+
 }
