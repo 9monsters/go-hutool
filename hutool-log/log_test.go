@@ -1,12 +1,11 @@
 package log_test
 
 import (
+	"github.com/nine-monsters/go-hutool/hutool-log"
 	"testing"
 
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/nine-monsters/go-hutool/hutool-log"
 )
 
 func Test_WithName(t *testing.T) {

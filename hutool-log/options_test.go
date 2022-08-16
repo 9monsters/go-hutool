@@ -2,11 +2,10 @@ package log_test
 
 import (
 	"fmt"
+	"github.com/nine-monsters/go-hutool/hutool-log"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/nine-monsters/go-hutool/hutool-log"
 )
 
 func Test_Options_Validate(t *testing.T) {
