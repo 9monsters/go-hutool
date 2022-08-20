@@ -1,28 +1,28 @@
 package digest
 
-type HmacAlgorithm struct {
-	value string
+type HmacAlgorithm[T string] struct {
+	value T
 }
 
 var (
-	HmacMD5    = HmacAlgorithm{"HmacMD5"}
-	HmacSHA1   = HmacAlgorithm{"HmacSHA1"}
-	HmacSHA256 = HmacAlgorithm{"HmacSHA256"}
-	HmacSHA384 = HmacAlgorithm{"HmacSHA384"}
-	HmacSHA512 = HmacAlgorithm{"HmacSHA512"}
+	HmacMD5    = HmacAlgorithm[string]{"HmacMD5"}
+	HmacSHA1   = HmacAlgorithm[string]{"HmacSHA1"}
+	HmacSHA256 = HmacAlgorithm[string]{"HmacSHA256"}
+	HmacSHA384 = HmacAlgorithm[string]{"HmacSHA384"}
+	HmacSHA512 = HmacAlgorithm[string]{"HmacSHA512"}
 
-	HmacSM3 = HmacAlgorithm{"HmacSM3"}
-	SM4CMAC = HmacAlgorithm{"SM4CMAC"}
+	HmacSM3 = HmacAlgorithm[string]{"HmacSM3"}
+	SM4CMAC = HmacAlgorithm[string]{"SM4CMAC"}
 )
 
-var hmacAlgorithms = []HmacAlgorithm{
+var hmacAlgorithms = []HmacAlgorithm[string]{
 	HmacMD5, HmacSHA1, HmacSHA256, HmacSHA384, HmacSHA512, HmacSM3, SM4CMAC,
 }
 
-func Values() []HmacAlgorithm {
+func Values() []HmacAlgorithm[string] {
 	return hmacAlgorithms
 }
 
-func (r *HmacAlgorithm) GetValue() string {
+func (r HmacAlgorithm[string]) GetValue() string {
 	return r.value
 }

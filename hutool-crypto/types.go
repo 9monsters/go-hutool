@@ -1,6 +1,7 @@
 package crypto
 
-type EnumFunc[T string | ~int] interface {
-	string | ~int
+import "github.com/nine-monsters/go-hutool/hutool-core/constraints"
+
+type EnumFunc[T constraints.Ordered] interface {
 	GetValue() (value T)
 }

@@ -1,6 +1,8 @@
 package text
 
-import "unicode"
+import (
+	"unicode"
+)
 
 // IsBlankRunes return rune is all blank
 func IsBlankRunes(runes []rune) bool {

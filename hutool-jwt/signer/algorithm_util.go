@@ -1,11 +1,11 @@
 package signer
 
 import (
-	"github.com/nine-monsters/go-hutool/hutool-crypto/asymmetric"
-	"github.com/nine-monsters/go-hutool/hutool-crypto/digest"
 	"strings"
 
 	"github.com/nine-monsters/go-hutool/hutool-core/util"
+	"github.com/nine-monsters/go-hutool/hutool-crypto/asymmetric"
+	"github.com/nine-monsters/go-hutool/hutool-crypto/digest"
 )
 
 var dataMap = make(map[string]string, 10)
