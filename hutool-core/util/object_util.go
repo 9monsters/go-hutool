@@ -5,7 +5,7 @@ func IsNil[T any](obj T) bool {
 }
 
 func DefaultIfNil[T any](obj T, defaultObj T) T {
-	if IsNil(obj) {
+	if !IsNil(obj) {
 		return obj
 	}
 	return defaultObj

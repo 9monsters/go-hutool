@@ -1,14 +1,13 @@
 package signer
 
 import (
-	"strings"
-
 	"github.com/nine-monsters/go-hutool/hutool-core/util"
 	"github.com/nine-monsters/go-hutool/hutool-crypto/asymmetric"
 	"github.com/nine-monsters/go-hutool/hutool-crypto/digest"
+	"strings"
 )
 
-var dataMap = make(map[string]string, 10)
+var dataMap = make(map[string]string, 12)
 
 func init() {
 	dataMap["HS256"] = digest.HmacSHA256.GetValue()
@@ -31,13 +30,12 @@ func init() {
 func GetAlgorithm(idOrAlgorithm string) string {
 	return util.DefaultIfNil(GetAlgorithmById(idOrAlgorithm), idOrAlgorithm)
 }
-
 func GetId(idOrAlgorithm string) string {
 	return util.DefaultIfNil(GetIdByAlgorithm(idOrAlgorithm), idOrAlgorithm)
 }
 
-func GetAlgorithmById(algorithm string) string {
-	return dataMap[strings.ToUpper(algorithm)]
+func GetAlgorithmById(id string) string {
+	return dataMap[strings.ToUpper(id)]
 }
 
 func GetIdByAlgorithm(algorithm string) string {
