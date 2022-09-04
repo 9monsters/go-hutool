@@ -4,26 +4,29 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/nine-monsters/go-hutool/hutool-core/codec"
 	"github.com/nine-monsters/go-hutool/hutool-core/text"
+	"github.com/nine-monsters/go-hutool/hutool-jwt/signer"
 )
 
-type JWT struct {
+var DecodePaddingAllowed bool
+
+type Jwter interface {
+	Claimer
+	Headerer
+	Payloader
+	signer.JwtSigner
+}
+
+type Jwt struct {
 	*Claims
 	*Header
 	*Payload
 	tokens []string
 }
 
-func (j *JWT) SetPayload(str string, data any) {
-	j.SetClaim(str, data)
-}
-
-func Create() *JWT {
-	return WithNone()
-}
-
-func WithNone() *JWT {
-	return &JWT{
+func Create() *Jwt {
+	return &Jwt{
 		Claims:  &Claims{},
 		Header:  &Header{},
 		Payload: &Payload{},
@@ -31,13 +34,17 @@ func WithNone() *JWT {
 	}
 }
 
-func WithToken(token string) *JWT {
-	jwt := WithNone()
-	jwt.pares(token)
+func (j *Jwt) SetPayload(str string, data any) {
+	j.SetClaim(str, data)
+}
+
+func CreateWithToken(token string) *Jwt {
+	jwt := Create()
+	jwt.Pares(token)
 	return jwt
 }
 
-func (j *JWT) pares(token string) {
+func (j *Jwt) Pares(token string) {
 	tokens := splitToken(token)
 	j.tokens = tokens
 	j.Header.Parse(j.tokens[0])
@@ -51,4 +58,19 @@ func splitToken(token string) []string {
 		panic(msg)
 	}
 	return tokens
+}
+
+func encodeSegment(seg []byte) string {
+	return codec.Base64.EncodeStr(seg)
+}
+
+func decodeSegment(seg string) ([]byte, error) {
+	if DecodePaddingAllowed {
+		if l := len(seg) % 4; l > 0 {
+			seg += strings.Repeat("=", 4-l)
+		}
+		return codec.Base64.DecodeUrlSafeStrWithoutPadding(seg), nil
+	}
+
+	return codec.Base64.DecodeUrlSafeStr(seg), nil
 }

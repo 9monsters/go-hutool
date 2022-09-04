@@ -2,64 +2,97 @@ package codec
 
 import b64 "encoding/base64"
 
-type Base64Encoder struct {
-	StdEncoding    *b64.Encoding
-	RawStdEncoding *b64.Encoding
-	URLEncoding    *b64.Encoding
-	RawURLEncoding *b64.Encoding
+type base64 interface {
+	EncodeStr(seg []byte) string
+	EncodeUrlSafeStr(seg []byte) string
+	EncodeStrWithoutPadding(seg []byte) string
+	EncodeUrlSafeStrWithoutPadding(seg []byte) string
+
+	DecodeStr(sEnc string) ([]byte, error)
+	DecodeUrlSafeStr(sEnc string) ([]byte, error)
+	DecodeStrWithoutPadding(sEnc string) ([]byte, error)
+	DecodeUrlSafeStrWithoutPadding(sEnc string) ([]byte, error)
 }
 
-var Base64 = Base64Encoder{
-	StdEncoding:    b64.StdEncoding,
-	RawStdEncoding: b64.RawStdEncoding,
-	URLEncoding:    b64.URLEncoding,
-	RawURLEncoding: b64.RawURLEncoding,
+type base64Encoder struct {
+	stdEncoding    *b64.Encoding
+	rawStdEncoding *b64.Encoding
+	urlEncoding    *b64.Encoding
+	rawURLEncoding *b64.Encoding
 }
 
-func (ba Base64Encoder) EncodeStr(source string) string {
-	return ba.StdEncoding.EncodeToString([]byte(source))
-}
+var Base64 base64Encoder
 
-func (ba Base64Encoder) EncodeUrlSafeStr(source string) string {
-	return ba.URLEncoding.EncodeToString([]byte(source))
-}
-func (ba Base64Encoder) EncodeStrWithoutPadding(source string) string {
-	return ba.RawStdEncoding.EncodeToString([]byte(source))
-}
-
-func (ba Base64Encoder) EncodeUrlSafeStrWithoutPadding(source string) string {
-	return ba.RawURLEncoding.EncodeToString([]byte(source))
-}
-
-func (ba Base64Encoder) DecodeStr(sEnc string) string {
-	sDec, err := ba.StdEncoding.DecodeString(sEnc)
-	if err != nil {
-		panic("Decode error!")
+func init() {
+	Base64 = base64Encoder{
+		stdEncoding:    b64.StdEncoding,
+		rawStdEncoding: b64.RawStdEncoding,
+		urlEncoding:    b64.URLEncoding,
+		rawURLEncoding: b64.RawURLEncoding,
 	}
-	return string(sDec)
 }
 
-func (ba Base64Encoder) DecodeUrlSafeStr(sEnc string) string {
-	sDec, err := ba.URLEncoding.DecodeString(sEnc)
-	if err != nil {
-		panic("Decode error!")
+func (ba base64Encoder) EncodeStr(seg []byte) string {
+	return ba.encoding(seg, false, false)
+}
+
+func (ba base64Encoder) EncodeUrlSafeStr(seg []byte) string {
+	return ba.encoding(seg, true, false)
+}
+func (ba base64Encoder) EncodeStrWithoutPadding(seg []byte) string {
+	return ba.encoding(seg, false, true)
+}
+
+func (ba base64Encoder) EncodeUrlSafeStrWithoutPadding(seg []byte) string {
+	return ba.encoding(seg, true, true)
+}
+
+func (ba base64Encoder) encoding(seg []byte, safe bool, raw bool) string {
+	if raw {
+		if safe {
+			return ba.rawURLEncoding.EncodeToString(seg)
+		} else {
+			return ba.rawStdEncoding.EncodeToString(seg)
+		}
+	} else {
+		if safe {
+			return ba.urlEncoding.EncodeToString(seg)
+		} else {
+			return ba.stdEncoding.EncodeToString(seg)
+		}
 	}
-	return string(sDec)
+}
+
+func (ba base64Encoder) DecodeStr(sEnc string) ([]byte, error) {
+	return ba.decoding(sEnc, false, false)
+}
+
+func (ba base64Encoder) DecodeUrlSafeStr(sEnc string) ([]byte, error) {
+	return ba.decoding(sEnc, true, false)
 
 }
 
-func (ba Base64Encoder) DecodeStrWithoutPadding(sEnc string) string {
-	sDec, err := ba.RawStdEncoding.DecodeString(sEnc)
-	if err != nil {
-		panic("Decode error!")
-	}
-	return string(sDec)
+func (ba base64Encoder) DecodeStrWithoutPadding(sEnc string) ([]byte, error) {
+	return ba.decoding(sEnc, false, true)
+
 }
 
-func (ba Base64Encoder) DecodeUrlSafeStrWithoutPadding(sEnc string) string {
-	sDec, err := ba.RawURLEncoding.DecodeString(sEnc)
-	if err != nil {
-		panic("Decode error!")
+func (ba base64Encoder) DecodeUrlSafeStrWithoutPadding(sEnc string) ([]byte, error) {
+	return ba.decoding(sEnc, true, true)
+}
+
+func (ba base64Encoder) decoding(enc string, safe bool, raw bool) ([]byte, error) {
+	if raw {
+		if safe {
+			return ba.rawURLEncoding.DecodeString(enc)
+		} else {
+			return ba.rawStdEncoding.DecodeString(enc)
+		}
+	} else {
+		if safe {
+			return ba.urlEncoding.DecodeString(enc)
+		} else {
+			return ba.stdEncoding.DecodeString(enc)
+		}
 	}
-	return string(sDec)
 }
