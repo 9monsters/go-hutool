@@ -3,21 +3,23 @@ package jwt
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/nine-monsters/go-hutool/hutool-core/text"
 	"github.com/nine-monsters/go-hutool/hutool-jwt/signer"
+	"strings"
 
 	"github.com/nine-monsters/go-hutool/hutool-core/codec"
-	//"github.com/nine-monsters/go-hutool/hutool-jwt/signer"
 )
 
 type Jwt struct {
-	Raw       string        // The raw token.  Populated when you Parse a token
-	Signer    signer.Signer // The signing method used or to be used
-	Claims    Claims        // The second segment of the token
-	Signature string        // The third segment of the token.  Populated when you Parse a token
-	Valid     bool          // Is the token valid?  Populated when you Parse/Verify a token
+	Raw       string // The raw token.  Populated when you Parse a token
+	Claims    Claims // The second segment of the token
+	Signature string // The third segment of the token.  Populated when you Parse a token
+	Valid     bool   // Is the token valid?  Populated when you Parse/Verify a token
 
-	Header  Header  // The first segment of the token
-	Payload Payload // Is the token valid?  Populated when you Parse/Verify a token
+	Header  Header        // The first segment of the token
+	Signer  signer.Signer // The signing method used or to be used
+	Payload Payload       // Is the token valid?  Populated when you Parse/Verify a token
+	tokens  []string
 }
 
 type jwter interface {
@@ -25,13 +27,17 @@ type jwter interface {
 	setSigner(signer signer.Signer) *Jwt
 	sign() string
 	signWithSigner(signer signer.Signer) string
+	parse(token string) *Jwt
+	verify() bool
+	verifyWithSigner(s signer.Signer) bool
+	validate(leeway int) bool
 }
 
 func Create() *Jwt {
-	jwt := &Jwt{}
-	jwt.Header = *createHeader()
-	jwt.Payload = *createPayload()
-	return jwt
+	return &Jwt{
+		Header:  *createHeader(),
+		Payload: *createPayload(),
+	}
 }
 
 func (j *Jwt) setKey(key []byte) *Jwt {
@@ -66,4 +72,54 @@ func (j *Jwt) signWithSigner(sg signer.Signer) string {
 
 	sign := sg.Sign(hSafeStr, pSafeStr)
 	return fmt.Sprintf("%s.%s.%s", hSafeStr, pSafeStr, sign)
+}
+
+func of(token string) *Jwt {
+	jwt := Create()
+	jwt.parse(token)
+	return jwt
+}
+
+func (j *Jwt) parse(token string) *Jwt {
+	j.Raw = token
+	j.tokens = splitToken(token)
+	j.Header = *ParseBase64(j.tokens[0])
+	j.Payload = *ParseBase64(j.tokens[1])
+
+	return j
+}
+
+func splitToken(token string) []string {
+	tokens := strings.Split(token, text.DOT)
+	if len(tokens) != 3 {
+		panic(fmt.Sprintf("The token was expected 3 parts, but got %d.", len(tokens)))
+	}
+	return tokens
+}
+
+func (j *Jwt) verify() bool {
+	return j.verifyWithSigner(j.Signer)
+}
+
+func (j *Jwt) verifyWithSigner(s signer.Signer) bool {
+	if s == nil {
+		s = signer.NONE
+	}
+
+	if len(j.tokens) == 0 {
+		panic("No token to verify!")
+	}
+	if len(j.tokens) != 3 {
+		panic(fmt.Sprintf("The token was expected 3 parts, but got %d.", len(j.tokens)))
+	}
+
+	return s.Verify(j.tokens[0], j.tokens[1], j.tokens[2])
+}
+
+func (j *Jwt) validate(leeway int) bool {
+	if !j.verify() {
+		return false
+	}
+	// todo 验证时间
+	return true
 }

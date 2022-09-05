@@ -7,11 +7,13 @@ type base64 interface {
 	EncodeUrlSafeStr(seg []byte) string
 	EncodeStrWithoutPadding(seg []byte) string
 	EncodeUrlSafeStrWithoutPadding(seg []byte) string
+	encoding(seg []byte, safe bool, raw bool) string
 
 	DecodeStr(sEnc string) ([]byte, error)
 	DecodeUrlSafeStr(sEnc string) ([]byte, error)
 	DecodeStrWithoutPadding(sEnc string) ([]byte, error)
 	DecodeUrlSafeStrWithoutPadding(sEnc string) ([]byte, error)
+	decoding(enc string, safe bool, raw bool) ([]byte, error)
 }
 
 type base64Encoder struct {

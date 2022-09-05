@@ -54,8 +54,9 @@ func (c Claims) getClaim(name string) any {
 	return c[name]
 }
 
-func Parse(tokenPart string) *Claims {
+func ParseBase64(tokenPart string) *map[string]any {
+	var data = make(map[string]any)
 	decodeStr, _ := codec.Base64.DecodeStr(tokenPart)
-	_ = json.Unmarshal(decodeStr, &claimsData)
-	return &claimsData
+	_ = json.Unmarshal(decodeStr, &data)
+	return &data
 }
