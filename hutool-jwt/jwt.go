@@ -12,11 +12,11 @@ import (
 
 type Jwt struct {
 	Raw       string // The raw token.  Populated when you Parse a token
-	Claims    Claims // The second segment of the token
-	Signature string // The third segment of the token.  Populated when you Parse a token
+	Claims    Claims // The second segment jwtFromToken the token
+	Signature string // The third segment jwtFromToken the token.  Populated when you Parse a token
 	Valid     bool   // Is the token valid?  Populated when you Parse/Verify a token
 
-	Header  Header        // The first segment of the token
+	Header  Header        // The first segment jwtFromToken the token
 	Signer  signer.Signer // The signing method used or to be used
 	Payload Payload       // Is the token valid?  Populated when you Parse/Verify a token
 	tokens  []string
@@ -74,7 +74,7 @@ func (j *Jwt) signWithSigner(sg signer.Signer) string {
 	return fmt.Sprintf("%s.%s.%s", hSafeStr, pSafeStr, sign)
 }
 
-func of(token string) *Jwt {
+func jwtFromToken(token string) *Jwt {
 	jwt := Create()
 	jwt.parse(token)
 	return jwt
@@ -122,4 +122,17 @@ func (j *Jwt) validate(leeway int) bool {
 	}
 	// todo 验证时间
 	return true
+}
+
+func (j *Jwt) getAlgorithm() string {
+	claim := j.Header.getClaim(Algorithm)
+	switch a := claim.(type) {
+	case string:
+		return a
+	}
+	return ""
+}
+
+func (j *Jwt) getSigner() signer.Signer {
+	return j.Signer
 }

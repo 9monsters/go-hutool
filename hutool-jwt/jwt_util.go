@@ -49,10 +49,10 @@ func (j *Jwt) withPayload(payloads map[string]any) *Jwt {
 }
 
 func Parse(token string) *Jwt {
-	return of(token)
+	return jwtFromToken(token)
 }
 func Verify(token string, key []byte) bool {
-	return of(token).
+	return jwtFromToken(token).
 		setKey(key).
 		verify()
 }

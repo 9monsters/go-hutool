@@ -42,3 +42,22 @@ func Trims(str []string) []string {
 	}
 	return res
 }
+
+// Equals return seq1 equal to seq2
+func Equals(seq1 string, seq2 string) bool {
+	return EqualsIgnoreCase(seq1, seq2, false)
+}
+
+func EqualsIgnoreCase(seq1 string, seq2 string, ignoreCase bool) bool {
+	if seq1 == "" {
+		return seq2 == ""
+	}
+	if seq2 == "" {
+		return false
+	}
+	if ignoreCase {
+		return seq1 == seq2
+	} else {
+		return strings.EqualFold(seq1, seq2)
+	}
+}
