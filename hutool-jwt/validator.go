@@ -12,6 +12,9 @@ type Validate struct {
 	Jwt
 }
 type Validator interface {
+	validateAlgorithm() (*Validate, error)
+	validateAlgorithmWithSigner(signer signer.Signer) (*Validate, error)
+	validateAlgorithmWithJwtAndSigner(jwt Jwt, sg signer.Signer) error
 }
 
 func validatorFromToken(token string) *Validate {
@@ -37,7 +40,7 @@ func (v Validate) validateAlgorithm() (*Validate, error) {
 }
 
 func (v Validate) validateAlgorithmWithSigner(signer signer.Signer) (*Validate, error) {
-	err := v.validateAlgorithmWithJwtAndSigner(v.Jwt, v.Signer)
+	err := v.validateAlgorithmWithJwtAndSigner(v.Jwt, signer)
 	if err != nil {
 		return nil, err
 	}
