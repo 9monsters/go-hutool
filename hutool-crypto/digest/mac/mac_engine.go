@@ -11,8 +11,7 @@ import (
 	"github.com/nine-monsters/go-hutool/hutool-crypto/digest"
 )
 
-func CreateEngine(algorithm string, key string) (hash.Hash, error) {
-	keys := []byte(key)
+func CreateEngine(algorithm string, keys []byte) (hash.Hash, error) {
 	switch algorithm {
 	case digest.HmacMD5.GetValue():
 		return hmac.New(md5.New, keys), nil

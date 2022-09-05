@@ -19,7 +19,7 @@ type Hmacer interface {
 	mac.Macer
 }
 
-func New(algorithm string, key string) (Hmac, error) {
+func New(algorithm string, key []byte) (Hmac, error) {
 	engine, err := mac.CreateEngine(algorithm, key)
 	if err != nil {
 		return Hmac{}, errors.New("create hmac error")
