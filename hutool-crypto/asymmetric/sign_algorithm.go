@@ -37,7 +37,7 @@ var signAlgorithms = []SignAlgorithm[string]{
 	SHA256withRSA_PSS, SHA384withRSA_PSS, SHA512withRSA_PSS,
 }
 
-func Values() []SignAlgorithm[string] {
+func SignAlgorithmValues() []SignAlgorithm[string] {
 	return signAlgorithms
 }
 
