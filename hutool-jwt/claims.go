@@ -1,8 +1,27 @@
 package jwt
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"github.com/nine-monsters/go-hutool/hutool-core/codec"
+	"time"
+)
+
+const (
+	// ISSUER
+	ISSUER = "iss"
+	// SUBJECT
+	SUBJECT = "sub"
+	// AUDIENCE
+	AUDIENCE = "aud"
+	// EXPIRES_AT
+	EXPIRES_AT = "exp"
+	// NOT_BEFORE
+	NOT_BEFORE = "nbf"
+	// ISSUED_AT
+	ISSUED_AT = "iat"
+	// JWT_ID
+	JWT_ID = "jti"
 )
 
 type RegisteredClaims struct {
@@ -59,4 +78,59 @@ func ParseBase64(tokenPart string) *map[string]any {
 	decodeStr, _ := codec.Base64.DecodeStr(tokenPart)
 	_ = json.Unmarshal(decodeStr, &data)
 	return &data
+}
+
+func verifyAud(aud []string, cmp string, required bool) bool {
+	if len(aud) == 0 {
+		return !required
+	}
+	// use a var here to keep constant time compare when looping over a number of claims
+	result := false
+
+	var stringClaims string
+	for _, a := range aud {
+		if subtle.ConstantTimeCompare([]byte(a), []byte(cmp)) != 0 {
+			result = true
+		}
+		stringClaims = stringClaims + a
+	}
+
+	// case where "" is sent in one or many aud claims
+	if len(stringClaims) == 0 {
+		return !required
+	}
+
+	return result
+}
+
+func verifyExp(exp *time.Time, now time.Time, required bool) bool {
+	if exp == nil {
+		return !required
+	}
+	return now.Before(*exp)
+}
+
+func verifyIat(iat *time.Time, now time.Time, required bool) bool {
+	if iat == nil {
+		return !required
+	}
+	return now.After(*iat) || now.Equal(*iat)
+}
+
+func verifyNbf(nbf *time.Time, now time.Time, required bool) bool {
+	if nbf == nil {
+		return !required
+	}
+	return now.After(*nbf) || now.Equal(*nbf)
+}
+
+func verifyIss(iss string, cmp string, required bool) bool {
+	if iss == "" {
+		return !required
+	}
+	if subtle.ConstantTimeCompare([]byte(iss), []byte(cmp)) != 0 {
+		return true
+	} else {
+		return false
+	}
 }

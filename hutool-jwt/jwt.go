@@ -3,11 +3,11 @@ package jwt
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/nine-monsters/go-hutool/hutool-core/text"
-	"github.com/nine-monsters/go-hutool/hutool-jwt/signer"
 	"strings"
 
 	"github.com/nine-monsters/go-hutool/hutool-core/codec"
+	"github.com/nine-monsters/go-hutool/hutool-core/text"
+	"github.com/nine-monsters/go-hutool/hutool-jwt/signer"
 )
 
 type Jwt struct {
