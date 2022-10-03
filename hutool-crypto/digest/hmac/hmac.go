@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
-	"github.com/nine-monsters/go-hutool/hutool-core/codec"
 	"hash"
 
+	"github.com/nine-monsters/go-hutool/hutool-core/codec"
 	"github.com/nine-monsters/go-hutool/hutool-crypto/digest/mac"
 )
 

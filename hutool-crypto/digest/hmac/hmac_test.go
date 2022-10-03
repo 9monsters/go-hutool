@@ -7,7 +7,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	hmac, err := New(digest.HmacSHA256.GetValue(), "ss")
+	hmac, err := New(digest.HmacSHA256.GetValue(), []byte{})
 	if err != nil {
 		t.Fatal("error", err)
 	}
