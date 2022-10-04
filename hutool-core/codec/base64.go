@@ -5,14 +5,14 @@ import b64 "encoding/base64"
 type base64 interface {
 	EncodeStr(seg []byte) string
 	EncodeUrlSafeStr(seg []byte) string
-	EncodeStrWithoutPadding(seg []byte) string
-	EncodeUrlSafeStrWithoutPadding(seg []byte) string
+	EncodeRawStr(seg []byte) string
+	EncodeRawUrlSafeStr(seg []byte) string
 	encoding(seg []byte, safe bool, raw bool) string
 
 	DecodeStr(sEnc string) ([]byte, error)
 	DecodeUrlSafeStr(sEnc string) ([]byte, error)
-	DecodeStrWithoutPadding(sEnc string) ([]byte, error)
-	DecodeUrlSafeStrWithoutPadding(sEnc string) ([]byte, error)
+	DecodeRawStr(sEnc string) ([]byte, error)
+	DecodeRawUrlSafeStr(sEnc string) ([]byte, error)
 	decoding(enc string, safe bool, raw bool) ([]byte, error)
 }
 
@@ -41,11 +41,11 @@ func (ba base64Encoder) EncodeStr(seg []byte) string {
 func (ba base64Encoder) EncodeUrlSafeStr(seg []byte) string {
 	return ba.encoding(seg, true, false)
 }
-func (ba base64Encoder) EncodeStrWithoutPadding(seg []byte) string {
+func (ba base64Encoder) EncodeRawStr(seg []byte) string {
 	return ba.encoding(seg, false, true)
 }
 
-func (ba base64Encoder) EncodeUrlSafeStrWithoutPadding(seg []byte) string {
+func (ba base64Encoder) EncodeRawUrlSafeStr(seg []byte) string {
 	return ba.encoding(seg, true, true)
 }
 
@@ -74,12 +74,12 @@ func (ba base64Encoder) DecodeUrlSafeStr(sEnc string) ([]byte, error) {
 
 }
 
-func (ba base64Encoder) DecodeStrWithoutPadding(sEnc string) ([]byte, error) {
+func (ba base64Encoder) DecodeRawStr(sEnc string) ([]byte, error) {
 	return ba.decoding(sEnc, false, true)
 
 }
 
-func (ba base64Encoder) DecodeUrlSafeStrWithoutPadding(sEnc string) ([]byte, error) {
+func (ba base64Encoder) DecodeRawUrlSafeStr(sEnc string) ([]byte, error) {
 	return ba.decoding(sEnc, true, true)
 }
 

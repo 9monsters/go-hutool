@@ -2,83 +2,124 @@ package jwt
 
 import (
 	"crypto/subtle"
-	"encoding/json"
-	"github.com/nine-monsters/go-hutool/hutool-core/codec"
+	"fmt"
 	"time"
 )
 
-const (
-	// ISSUER
-	ISSUER = "iss"
-	// SUBJECT
-	SUBJECT = "sub"
-	// AUDIENCE
-	AUDIENCE = "aud"
-	// EXPIRES_AT
-	EXPIRES_AT = "exp"
-	// NOT_BEFORE
-	NOT_BEFORE = "nbf"
-	// ISSUED_AT
-	ISSUED_AT = "iat"
-	// JWT_ID
-	JWT_ID = "jti"
-)
+// Claims must just have a Valid method that determines
+// if the token is invalid for any supported reason
+type Claims interface {
+	Valid() error
+}
 
+// RegisteredClaims are a structured version of the JWT Claims Set,
+// restricted to Registered Claim Names, as referenced at
+// https://datatracker.ietf.org/doc/html/rfc7519#section-4.1
+//
+// This type can be used on its own, but then additional private and
+// public claims embedded in the JWT will not be parsed. The typical usecase
+// therefore is to embed this in a user-defined claim type.
+//
+// See examples of how to use this with your own claim types.
 type RegisteredClaims struct {
-	Issuer    string       `json:"iss,omitempty"`
-	Subject   string       `json:"sub,omitempty"`
-	Audience  ClaimStrings `json:"aud,omitempty"`
+	// the `iss` (Issuer) claim. See https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.1
+	Issuer string `json:"iss,omitempty"`
+
+	// the `sub` (Subject) claim. See https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.2
+	Subject string `json:"sub,omitempty"`
+
+	// the `aud` (Audience) claim. See https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.3
+	Audience ClaimStrings `json:"aud,omitempty"`
+
+	// the `exp` (Expiration Time) claim. See https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.4
 	ExpiresAt *NumericDate `json:"exp,omitempty"`
+
+	// the `nbf` (Not Before) claim. See https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.5
 	NotBefore *NumericDate `json:"nbf,omitempty"`
-	IssuedAt  *NumericDate `json:"iat,omitempty"`
-	ID        string       `json:"jti,omitempty"`
+
+	// the `iat` (Issued At) claim. See https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.6
+	IssuedAt *NumericDate `json:"iat,omitempty"`
+
+	// the `jti` (JWT ID) claim. See https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.7
+	ID string `json:"jti,omitempty"`
 }
 
-type Claims map[string]any
+// Valid validates time-based claims "exp, iat, nbf".
+// There is no accounting for clock skew.
+// As well, if any of the above claims are not in the token, it will still
+// be considered a valid claim.
+func (c RegisteredClaims) Valid() error {
+	vErr := new(ValidationError)
+	now := TimeFunc()
 
-type claims interface {
-	setClaim(name string, value any)
-	putAll(headerClaims map[string]any)
-	getClaim(name string) any
-}
-
-var claimsData Claims
-
-func initClaims() {
-	if &claimsData == nil {
-		claimsData = make(map[string]any)
+	// The claims below are optional, by default, so if they are set to the
+	// default value in Go, let's not fail the verification for them.
+	if !c.VerifyExpiresAt(now, false) {
+		delta := now.Sub(c.ExpiresAt.Time)
+		vErr.Inner = fmt.Errorf("%s by %s", ErrTokenExpired, delta)
+		vErr.Errors |= ValidationErrorExpired
 	}
-}
 
-func createClaims() *Claims {
-	return &Claims{}
-}
-
-func (c Claims) setClaim(name string, value any) {
-	if value == nil {
-		delete(c, name)
+	if !c.VerifyIssuedAt(now, false) {
+		vErr.Inner = ErrTokenUsedBeforeIssued
+		vErr.Errors |= ValidationErrorIssuedAt
 	}
-	c[name] = value
-}
 
-func (c Claims) putAll(headerClaims map[string]any) {
-	if len(headerClaims) > 0 {
-		for name, data := range headerClaims {
-			c.setClaim(name, data)
-		}
+	if !c.VerifyNotBefore(now, false) {
+		vErr.Inner = ErrTokenNotValidYet
+		vErr.Errors |= ValidationErrorNotValidYet
 	}
+
+	if vErr.valid() {
+		return nil
+	}
+
+	return vErr
 }
 
-func (c Claims) getClaim(name string) any {
-	return c[name]
+// VerifyAudience compares the aud claim against cmp.
+// If required is false, this method will return true if the value matches or is unset
+func (c *RegisteredClaims) VerifyAudience(cmp string, req bool) bool {
+	return verifyAud(c.Audience, cmp, req)
 }
 
-func ParseBase64(tokenPart string) *map[string]any {
-	var data = make(map[string]any)
-	decodeStr, _ := codec.Base64.DecodeStr(tokenPart)
-	_ = json.Unmarshal(decodeStr, &data)
-	return &data
+// VerifyExpiresAt compares the exp claim against cmp (cmp < exp).
+// If req is false, it will return true if exp is unset.
+func (c *RegisteredClaims) VerifyExpiresAt(cmp time.Time, req bool) bool {
+	if c.ExpiresAt == nil {
+		return verifyExp(nil, cmp, req)
+	}
+
+	return verifyExp(&c.ExpiresAt.Time, cmp, req)
 }
+
+// VerifyIssuedAt compares the iat claim against cmp (cmp >= iat).
+// If req is false, it will return true if iat is unset.
+func (c *RegisteredClaims) VerifyIssuedAt(cmp time.Time, req bool) bool {
+	if c.IssuedAt == nil {
+		return verifyIat(nil, cmp, req)
+	}
+
+	return verifyIat(&c.IssuedAt.Time, cmp, req)
+}
+
+// VerifyNotBefore compares the nbf claim against cmp (cmp >= nbf).
+// If req is false, it will return true if nbf is unset.
+func (c *RegisteredClaims) VerifyNotBefore(cmp time.Time, req bool) bool {
+	if c.NotBefore == nil {
+		return verifyNbf(nil, cmp, req)
+	}
+
+	return verifyNbf(&c.NotBefore.Time, cmp, req)
+}
+
+// VerifyIssuer compares the iss claim against cmp.
+// If required is false, this method will return true if the value matches or is unset
+func (c *RegisteredClaims) VerifyIssuer(cmp string, req bool) bool {
+	return verifyIss(c.Issuer, cmp, req)
+}
+
+// ----- helpers
 
 func verifyAud(aud []string, cmp string, required bool) bool {
 	if len(aud) == 0 {
