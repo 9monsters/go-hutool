@@ -1,7 +1,17 @@
 package signer
 
-import "github.com/nine-monsters/go-hutool/hutool-crypto/digest/hmac"
-
+// AsymmetricSigner AsymmetricSigner
 type AsymmetricSigner struct {
-	hmac hmac.Hmac
+}
+
+func (as *AsymmetricSigner) Sign(headerBase64 string, payloadBase64 string) string {
+
+}
+
+func (as *AsymmetricSigner) Verify(headerBase64 string, payloadBase64 string, signBase64 string) bool {
+
+}
+
+func (as *AsymmetricSigner) GetAlgorithm() string {
+
 }

@@ -60,3 +60,20 @@ func CreateSigner(algorithmId string, key []byte) Signer {
 	}
 	return nil
 }
+
+// CreateSigner 创建签名器
+// algorithmId 算法ID
+func CreateSigner(algorithmId string, key []byte) Signer {
+	if algorithmId == "" || IdNone == algorithmId {
+		return None()
+	}
+	algorithm := GetAlgorithm(algorithmId)
+
+	h, err := hmac.New(algorithm, key)
+	if err == nil {
+		return &HmacSigner{
+			hmac: h,
+		}
+	}
+	return nil
+}

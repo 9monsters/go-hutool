@@ -3,11 +3,11 @@ package hmac
 import (
 	"bytes"
 	"encoding/hex"
-	"errors"
 	"hash"
 
 	"github.com/nine-monsters/go-hutool/hutool-core/codec"
 	"github.com/nine-monsters/go-hutool/hutool-crypto/digest/mac"
+	"github.com/nine-monsters/go-hutool/hutool-crypto/errors"
 )
 
 type Hmac struct {
@@ -22,7 +22,7 @@ type Hmacer interface {
 func New(algorithm string, key []byte) (Hmac, error) {
 	engine, err := mac.CreateEngine(algorithm, key)
 	if err != nil {
-		return Hmac{}, errors.New("create hmac error")
+		return Hmac{}, errors.ErrCreateHmac
 	}
 	hmac := Hmac{
 		engine:    engine,

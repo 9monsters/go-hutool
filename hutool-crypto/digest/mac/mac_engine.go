@@ -9,6 +9,7 @@ import (
 	"hash"
 
 	"github.com/nine-monsters/go-hutool/hutool-crypto/digest"
+	"github.com/nine-monsters/go-hutool/hutool-crypto/errors"
 )
 
 func CreateEngine(algorithm string, keys []byte) (hash.Hash, error) {
@@ -29,6 +30,6 @@ func CreateEngine(algorithm string, keys []byte) (hash.Hash, error) {
 		return hmac.New(sha512.New, keys), nil
 
 	default:
-		panic("not support algorithm")
+		return nil, errors.ErrHmacAlgorithm
 	}
 }

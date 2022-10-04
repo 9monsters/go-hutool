@@ -1,10 +1,11 @@
 package signer
 
 import (
+	"strings"
+
 	"github.com/nine-monsters/go-hutool/hutool-core/util"
 	"github.com/nine-monsters/go-hutool/hutool-crypto/asymmetric"
 	"github.com/nine-monsters/go-hutool/hutool-crypto/digest"
-	"strings"
 )
 
 var dataMap = make(map[string]string, 12)
@@ -39,17 +40,22 @@ func init() {
 	dataMap[asymmetric.SHA512withRSA_PSS.GetValue()] = "PS512"
 }
 
+// GetAlgorithm GetAlgorithm
 func GetAlgorithm(idOrAlgorithm string) string {
 	return util.DefaultIfEmpty(GetAlgorithmById(idOrAlgorithm), idOrAlgorithm)
 }
+
+// GetId GetId
 func GetId(idOrAlgorithm string) string {
 	return util.DefaultIfEmpty(GetIdByAlgorithm(idOrAlgorithm), idOrAlgorithm)
 }
 
+// GetAlgorithmById GetAlgorithmById
 func GetAlgorithmById(id string) string {
 	return dataMap[strings.ToUpper(id)]
 }
 
+// GetIdByAlgorithm GetIdByAlgorithm
 func GetIdByAlgorithm(algorithm string) string {
 	return dataMap[algorithm]
 }
