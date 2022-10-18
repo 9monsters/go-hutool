@@ -1,4 +1,4 @@
-module hutool-net
+module github.com/nine-monsters/go-hutool/hutool-net
 
 go 1.19
 
