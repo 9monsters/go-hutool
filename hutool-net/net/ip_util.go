@@ -16,7 +16,9 @@ import (
 )
 
 const (
-	LOCAL_IP           string = "127.0.0.1"
+	LOCAL_IPV4_IP string = "127.0.0.1"
+	LOCAL_IPV6_IP string = "::1"
+
 	IP_SPLIT_MARK      string = text.DASHED
 	IP_MASK_SPLIT_MARK string = text.SLASH
 	IP_MASK_MAX        int    = 32
