@@ -1,4 +1,4 @@
-module github.com/nine-monsters/go-hutool/github.com/nine-monsters/go-hutool/hutool-log
+module github.com/nine-monsters/go-hutool/hutool-log
 
 go 1.18
 
