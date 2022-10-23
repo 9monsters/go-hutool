@@ -1,0 +1,10 @@
+go 1.19
+
+use (
+	./hutool-core
+	./hutool-crypto
+	./hutool-db
+	./hutool-log
+	./hutool-errors
+	./hutool-jwt
+)
