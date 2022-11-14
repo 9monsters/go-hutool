@@ -3,7 +3,9 @@ package log
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"sync"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -19,8 +21,9 @@ type InfoLogger interface {
 	// the log line.  The key/value pairs can then be used to add additional
 	// variable information.  The key/value pairs should alternate string
 	// keys and arbitrary values.
-	Info(msg string, keysAndValues ...interface{})
-	Infof(format string, args ...interface{})
+	Info(msg string, fields ...Field)
+	Infof(format string, v ...interface{})
+	Infow(msg string, keysAndValues ...interface{})
 
 	// Enabled tests whether this InfoLogger is enabled.  For example,
 	// commandline flags might be used to set the logging verbosity and disable
@@ -30,27 +33,30 @@ type InfoLogger interface {
 
 // Logger represents the ability to log messages, both errors and not.
 type Logger interface {
-	// InfoLogger All Loggers implement InfoLogger.  Calling InfoLogger methods directly on
+	// All Loggers implement InfoLogger.  Calling InfoLogger methods directly on
 	// a Logger value is equivalent to calling them on a V(0) InfoLogger.  For
 	// example, logger.Info() produces the same result as logger.V(0).Info.
 	InfoLogger
-
-	// Error logs an error, with the given message and key/value pairs as context.
-	// It functions similarly to calling Info with the "error" named value, but may
-	// have unique behavior, and should be preferred for logging errors (see the
-	// package documentations for more information).
-	//
-	// The msg field should be used to add context to any underlying error,
-	// while the err field should be used to attach the actual error that
-	// triggered this log line, if present.
-	Error(err error, msg string, keysAndValues ...interface{})
-	Errorf(format string, args ...interface{})
+	Debug(msg string, fields ...Field)
+	Debugf(format string, v ...interface{})
+	Debugw(msg string, keysAndValues ...interface{})
+	Warn(msg string, fields ...Field)
+	Warnf(format string, v ...interface{})
+	Warnw(msg string, keysAndValues ...interface{})
+	Error(msg string, fields ...Field)
+	Errorf(format string, v ...interface{})
+	Errorw(msg string, keysAndValues ...interface{})
+	Panic(msg string, fields ...Field)
+	Panicf(format string, v ...interface{})
+	Panicw(msg string, keysAndValues ...interface{})
+	Fatal(msg string, fields ...Field)
+	Fatalf(format string, v ...interface{})
+	Fatalw(msg string, keysAndValues ...interface{})
 
 	// V returns an InfoLogger value for a specific verbosity level.  A higher
 	// verbosity level means a log message is less important.  It's illegal to
 	// pass a log level less than zero.
-	V(level int) InfoLogger
-
+	V(level Level) InfoLogger
 	Write(p []byte) (n int, err error)
 
 	// WithValues adds some key-value pairs of context to a logger.
@@ -78,8 +84,9 @@ var _ Logger = &zapLogger{}
 type noopInfoLogger struct{}
 
 func (l *noopInfoLogger) Enabled() bool                    { return false }
-func (l *noopInfoLogger) Info(_ string, _ ...interface{})  {}
+func (l *noopInfoLogger) Info(_ string, _ ...Field)        {}
 func (l *noopInfoLogger) Infof(_ string, _ ...interface{}) {}
+func (l *noopInfoLogger) Infow(_ string, _ ...interface{}) {}
 
 var disabledInfoLogger = &noopInfoLogger{}
 
@@ -97,14 +104,22 @@ type infoLogger struct {
 }
 
 func (l *infoLogger) Enabled() bool { return true }
-func (l *infoLogger) Info(msg string, keysAndValues ...interface{}) {
+func (l *infoLogger) Info(msg string, fields ...Field) {
 	if checkedEntry := l.log.Check(l.level, msg); checkedEntry != nil {
-		checkedEntry.Write(handleFields(l.log, keysAndValues)...)
+		checkedEntry.Write(fields...)
 	}
 }
 
 func (l *infoLogger) Infof(format string, args ...interface{}) {
-	l.log.Sugar().Infof(format, args...)
+	if checkedEntry := l.log.Check(l.level, fmt.Sprintf(format, args...)); checkedEntry != nil {
+		checkedEntry.Write()
+	}
+}
+
+func (l *infoLogger) Infow(msg string, keysAndValues ...interface{}) {
+	if checkedEntry := l.log.Check(l.level, msg); checkedEntry != nil {
+		checkedEntry.Write(handleFields(l.log, keysAndValues)...)
+	}
 }
 
 // zapLogger is a logr.Logger that uses Zap to log.
@@ -134,12 +149,14 @@ func handleFields(l *zap.Logger, args []interface{}, additional ...zap.Field) []
 		// it breaks implementation agnosticism), so we can give a better error message.
 		if _, ok := args[i].(zap.Field); ok {
 			l.DPanic("strongly-typed Zap Field passed to logr", zap.Any("zap field", args[i]))
+
 			break
 		}
 
 		// make sure this isn't a mismatched key
 		if i == len(args)-1 {
 			l.DPanic("odd number of arguments passed as key-value pairs for logging", zap.Any("ignored key", args[i]))
+
 			break
 		}
 
@@ -149,7 +166,11 @@ func handleFields(l *zap.Logger, args []interface{}, additional ...zap.Field) []
 		keyStr, isString := key.(string)
 		if !isString {
 			// if the key isn't a string, DPanic and stop logging
-			l.DPanic("non-string key argument passed to logging, ignoring all later arguments", zap.Any("invalid key", key))
+			l.DPanic(
+				"non-string key argument passed to logging, ignoring all later arguments",
+				zap.Any("invalid key", key),
+			)
+
 			break
 		}
 
@@ -161,46 +182,52 @@ func handleFields(l *zap.Logger, args []interface{}, additional ...zap.Field) []
 }
 
 var (
-	logger  *zapLogger
-	options *Options
+	std = New(NewOptions())
+	mu  sync.Mutex
 )
 
-// nolint: gochecknoinits // need to init a default logger
-func init() {
-	Init(NewOptions())
+// Init initializes logger with specified options.
+func Init(opts *Options) {
+	mu.Lock()
+	defer mu.Unlock()
+	std = New(opts)
 }
 
-// Init initializes logger by opts which can custmoized by command arguments.
-func Init(opts *Options) {
-	options = opts
-	encoderConfig := zapcore.EncoderConfig{
-		TimeKey:        "time",
-		LevelKey:       "level",
-		NameKey:        "logger",
-		CallerKey:      "caller",
-		MessageKey:     "msg",
-		StacktraceKey:  "stack",
-		LineEnding:     zapcore.DefaultLineEnding,
-		EncodeLevel:    zapcore.LowercaseLevelEncoder,
-		EncodeTime:     timeEncoder,
-		EncodeDuration: milliSecondsDurationEncoder,
-		EncodeCaller:   zapcore.ShortCallerEncoder,
-	}
-	// when output to local path, with color is forbidden
-	if opts.EnableColor {
-		encoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+// New create logger by opts which can custmoized by command arguments.
+func New(opts *Options) *zapLogger {
+	if opts == nil {
+		opts = NewOptions()
 	}
 
 	var zapLevel zapcore.Level
 	if err := zapLevel.UnmarshalText([]byte(opts.Level)); err != nil {
-		zapLevel = InfoLevel
+		zapLevel = zapcore.InfoLevel
+	}
+	encodeLevel := zapcore.CapitalLevelEncoder
+	// when output to local path, with color is forbidden
+	if opts.Format == consoleFormat && opts.EnableColor {
+		encodeLevel = zapcore.CapitalColorLevelEncoder
+	}
+
+	encoderConfig := zapcore.EncoderConfig{
+		MessageKey:     "message",
+		LevelKey:       "level",
+		TimeKey:        "timestamp",
+		NameKey:        "logger",
+		CallerKey:      "caller",
+		StacktraceKey:  "stacktrace",
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeLevel:    encodeLevel,
+		EncodeTime:     timeEncoder,
+		EncodeDuration: milliSecondsDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
 
 	loggerConfig := &zap.Config{
 		Level:             zap.NewAtomicLevelAt(zapLevel),
-		Development:       false,
-		DisableCaller:     !opts.EnableCaller,
-		DisableStacktrace: false,
+		Development:       opts.Development,
+		DisableCaller:     opts.DisableCaller,
+		DisableStacktrace: opts.DisableStacktrace,
 		Sampling: &zap.SamplingConfig{
 			Initial:    100,
 			Thereafter: 100,
@@ -216,8 +243,8 @@ func Init(opts *Options) {
 	if err != nil {
 		panic(err)
 	}
-	logger = &zapLogger{
-		zapLogger: l,
+	logger := &zapLogger{
+		zapLogger: l.Named(opts.Name),
 		infoLogger: infoLogger{
 			log:   l,
 			level: zap.InfoLevel,
@@ -225,81 +252,84 @@ func Init(opts *Options) {
 	}
 	klog.InitLogger(l)
 	zap.RedirectStdLog(l)
+
+	return logger
+}
+
+// SugaredLogger returns global sugared logger.
+func SugaredLogger() *zap.SugaredLogger {
+	return std.zapLogger.Sugar()
 }
 
 // StdErrLogger returns logger of standard library which writes to supplied zap
 // logger at error level.
 func StdErrLogger() *log.Logger {
-	if logger == nil {
+	if std == nil {
 		return nil
 	}
-	if l, err := zap.NewStdLogAt(logger.zapLogger, zapcore.ErrorLevel); err == nil {
+	if l, err := zap.NewStdLogAt(std.zapLogger, zapcore.ErrorLevel); err == nil {
 		return l
 	}
+
 	return nil
 }
 
 // StdInfoLogger returns logger of standard library which writes to supplied zap
 // logger at info level.
 func StdInfoLogger() *log.Logger {
-	if logger == nil {
+	if std == nil {
 		return nil
 	}
-	if l, err := zap.NewStdLogAt(logger.zapLogger, zapcore.InfoLevel); err == nil {
+	if l, err := zap.NewStdLogAt(std.zapLogger, zapcore.InfoLevel); err == nil {
 		return l
 	}
+
 	return nil
 }
 
-func (l *zapLogger) Error(err error, msg string, keysAndValues ...interface{}) {
-	if checkedEntry := l.zapLogger.Check(zap.ErrorLevel, msg); checkedEntry != nil {
-		checkedEntry.Write(handleFields(l.zapLogger, keysAndValues, zap.Error(err))...)
-	}
-}
-
-func (l *zapLogger) Errorf(format string, args ...interface{}) {
-	l.log.Sugar().Errorf(format, args...)
-}
-
 // V return a leveled InfoLogger.
-func V(level int) InfoLogger { return logger.V(level) }
-func (l *zapLogger) V(level int) InfoLogger {
-	if level < 0 || level > 1 {
-		panic("valid log level is [0, 1]")
-	}
-	lvl := zapcore.Level(-1 * level)
-	if l.zapLogger.Core().Enabled(lvl) {
+func V(level Level) InfoLogger { return std.V(level) }
+
+func (l *zapLogger) V(level Level) InfoLogger {
+	if l.zapLogger.Core().Enabled(level) {
 		return &infoLogger{
-			level: lvl,
+			level: level,
 			log:   l.zapLogger,
 		}
 	}
+
 	return disabledInfoLogger
 }
 
 func (l *zapLogger) Write(p []byte) (n int, err error) {
 	l.zapLogger.Info(string(p))
+
 	return len(p), nil
 }
 
 // WithValues creates a child logger and adds adds Zap fields to it.
-func WithValues(keysAndValues ...interface{}) Logger { return logger.WithValues(keysAndValues...) }
+func WithValues(keysAndValues ...interface{}) Logger { return std.WithValues(keysAndValues...) }
+
 func (l *zapLogger) WithValues(keysAndValues ...interface{}) Logger {
 	newLogger := l.zapLogger.With(handleFields(l.zapLogger, keysAndValues)...)
+
 	return NewLogger(newLogger)
 }
 
 // WithName adds a new path segment to the logger's name. Segments are joined by
 // periods. By default, Loggers are unnamed.
-func WithName(s string) Logger { return logger.WithName(s) }
+func WithName(s string) Logger { return std.WithName(s) }
+
 func (l *zapLogger) WithName(name string) Logger {
 	newLogger := l.zapLogger.Named(name)
+
 	return NewLogger(newLogger)
 }
 
 // Flush calls the underlying Core's Sync method, flushing any buffered
 // log entries. Applications should take care to call Sync before exiting.
-func Flush() { logger.Flush() }
+func Flush() { std.Flush() }
+
 func (l *zapLogger) Flush() {
 	_ = l.zapLogger.Sync()
 }
@@ -317,7 +347,7 @@ func NewLogger(l *zap.Logger) Logger {
 
 // ZapLogger used for other log wrapper such as klog.
 func ZapLogger() *zap.Logger {
-	return logger.zapLogger
+	return std.zapLogger
 }
 
 // CheckIntLevel used for other log wrapper such as klog which return if logging a
@@ -329,104 +359,197 @@ func CheckIntLevel(level int32) bool {
 	} else {
 		lvl = zapcore.DebugLevel
 	}
-	checkEntry := logger.zapLogger.Check(lvl, "")
+	checkEntry := std.zapLogger.Check(lvl, "")
+
 	return checkEntry != nil
 }
 
 // Debug method output debug level log.
 func Debug(msg string, fields ...Field) {
-	logger.zapLogger.Debug(msg, fields...)
+	std.zapLogger.Debug(msg, fields...)
+}
+
+func (l *zapLogger) Debug(msg string, fields ...Field) {
+	l.zapLogger.Debug(msg, fields...)
 }
 
 // Debugf method output debug level log.
 func Debugf(format string, v ...interface{}) {
-	logger.zapLogger.Sugar().Debugf(format, v...)
+	std.zapLogger.Sugar().Debugf(format, v...)
+}
+
+func (l *zapLogger) Debugf(format string, v ...interface{}) {
+	l.zapLogger.Sugar().Debugf(format, v...)
 }
 
 // Debugw method output debug level log.
 func Debugw(msg string, keysAndValues ...interface{}) {
-	logger.zapLogger.Sugar().Debugw(msg, keysAndValues...)
+	std.zapLogger.Sugar().Debugw(msg, keysAndValues...)
+}
+
+func (l *zapLogger) Debugw(msg string, keysAndValues ...interface{}) {
+	l.zapLogger.Sugar().Debugw(msg, keysAndValues...)
 }
 
 // Info method output info level log.
 func Info(msg string, fields ...Field) {
-	logger.zapLogger.Info(msg, fields...)
+	std.zapLogger.Info(msg, fields...)
+}
+
+func (l *zapLogger) Info(msg string, fields ...Field) {
+	l.zapLogger.Info(msg, fields...)
 }
 
 // Infof method output info level log.
 func Infof(format string, v ...interface{}) {
-	logger.zapLogger.Sugar().Infof(format, v...)
+	std.zapLogger.Sugar().Infof(format, v...)
+}
+
+func (l *zapLogger) Infof(format string, v ...interface{}) {
+	l.zapLogger.Sugar().Infof(format, v...)
 }
 
 // Infow method output info level log.
 func Infow(msg string, keysAndValues ...interface{}) {
-	logger.zapLogger.Sugar().Infow(msg, keysAndValues...)
+	std.zapLogger.Sugar().Infow(msg, keysAndValues...)
+}
+
+func (l *zapLogger) Infow(msg string, keysAndValues ...interface{}) {
+	l.zapLogger.Sugar().Infow(msg, keysAndValues...)
 }
 
 // Warn method output warning level log.
 func Warn(msg string, fields ...Field) {
-	logger.zapLogger.Warn(msg, fields...)
+	std.zapLogger.Warn(msg, fields...)
+}
+
+func (l *zapLogger) Warn(msg string, fields ...Field) {
+	l.zapLogger.Warn(msg, fields...)
 }
 
 // Warnf method output warning level log.
 func Warnf(format string, v ...interface{}) {
-	logger.zapLogger.Sugar().Warnf(format, v...)
+	std.zapLogger.Sugar().Warnf(format, v...)
+}
+
+func (l *zapLogger) Warnf(format string, v ...interface{}) {
+	l.zapLogger.Sugar().Warnf(format, v...)
 }
 
 // Warnw method output warning level log.
 func Warnw(msg string, keysAndValues ...interface{}) {
-	logger.zapLogger.Sugar().Warnw(msg, keysAndValues...)
+	std.zapLogger.Sugar().Warnw(msg, keysAndValues...)
+}
+
+func (l *zapLogger) Warnw(msg string, keysAndValues ...interface{}) {
+	l.zapLogger.Sugar().Warnw(msg, keysAndValues...)
 }
 
 // Error method output error level log.
 func Error(msg string, fields ...Field) {
-	logger.zapLogger.Error(msg, fields...)
+	std.zapLogger.Error(msg, fields...)
+}
+
+func (l *zapLogger) Error(msg string, fields ...Field) {
+	l.zapLogger.Error(msg, fields...)
 }
 
 // Errorf method output error level log.
 func Errorf(format string, v ...interface{}) {
-	logger.zapLogger.Sugar().Errorf(format, v...)
+	std.zapLogger.Sugar().Errorf(format, v...)
+}
+
+func (l *zapLogger) Errorf(format string, v ...interface{}) {
+	l.zapLogger.Sugar().Errorf(format, v...)
 }
 
 // Errorw method output error level log.
 func Errorw(msg string, keysAndValues ...interface{}) {
-	logger.zapLogger.Sugar().Errorw(msg, keysAndValues...)
+	std.zapLogger.Sugar().Errorw(msg, keysAndValues...)
+}
+
+func (l *zapLogger) Errorw(msg string, keysAndValues ...interface{}) {
+	l.zapLogger.Sugar().Errorw(msg, keysAndValues...)
 }
 
 // Panic method output panic level log and shutdown application.
 func Panic(msg string, fields ...Field) {
-	logger.zapLogger.Panic(msg, fields...)
+	std.zapLogger.Panic(msg, fields...)
+}
+
+func (l *zapLogger) Panic(msg string, fields ...Field) {
+	l.zapLogger.Panic(msg, fields...)
 }
 
 // Panicf method output panic level log and shutdown application.
 func Panicf(format string, v ...interface{}) {
-	logger.zapLogger.Sugar().Panicf(format, v...)
+	std.zapLogger.Sugar().Panicf(format, v...)
+}
+
+func (l *zapLogger) Panicf(format string, v ...interface{}) {
+	l.zapLogger.Sugar().Panicf(format, v...)
 }
 
 // Panicw method output panic level log.
 func Panicw(msg string, keysAndValues ...interface{}) {
-	logger.zapLogger.Sugar().Panicw(msg, keysAndValues...)
+	std.zapLogger.Sugar().Panicw(msg, keysAndValues...)
+}
+
+func (l *zapLogger) Panicw(msg string, keysAndValues ...interface{}) {
+	l.zapLogger.Sugar().Panicw(msg, keysAndValues...)
 }
 
 // Fatal method output fatal level log.
 func Fatal(msg string, fields ...Field) {
-	logger.zapLogger.Fatal(msg, fields...)
+	std.zapLogger.Fatal(msg, fields...)
+}
+
+func (l *zapLogger) Fatal(msg string, fields ...Field) {
+	l.zapLogger.Fatal(msg, fields...)
 }
 
 // Fatalf method output fatal level log.
 func Fatalf(format string, v ...interface{}) {
-	logger.zapLogger.Sugar().Fatalf(format, v...)
+	std.zapLogger.Sugar().Fatalf(format, v...)
+}
+
+func (l *zapLogger) Fatalf(format string, v ...interface{}) {
+	l.zapLogger.Sugar().Fatalf(format, v...)
 }
 
 // Fatalw method output Fatalw level log.
 func Fatalw(msg string, keysAndValues ...interface{}) {
-	logger.zapLogger.Sugar().Fatalw(msg, keysAndValues...)
+	std.zapLogger.Sugar().Fatalw(msg, keysAndValues...)
 }
 
-func GetOptions() *Options {
-	return options
+func (l *zapLogger) Fatalw(msg string, keysAndValues ...interface{}) {
+	l.zapLogger.Sugar().Fatalw(msg, keysAndValues...)
 }
 
-func GetLogger() *zapLogger {
-	return logger
+// L method output with specified context value.
+func L(ctx context.Context) *zapLogger {
+	return std.L(ctx)
+}
+
+func (l *zapLogger) L(ctx context.Context) *zapLogger {
+	lg := l.clone()
+
+	if requestID := ctx.Value(KeyRequestID); requestID != nil {
+		lg.zapLogger = lg.zapLogger.With(zap.Any(KeyRequestID, requestID))
+	}
+	if username := ctx.Value(KeyUsername); username != nil {
+		lg.zapLogger = lg.zapLogger.With(zap.Any(KeyUsername, username))
+	}
+	if watcherName := ctx.Value(KeyWatcherName); watcherName != nil {
+		lg.zapLogger = lg.zapLogger.With(zap.Any(KeyWatcherName, watcherName))
+	}
+
+	return lg
+}
+
+//nolint:predeclared
+func (l *zapLogger) clone() *zapLogger {
+	copy := *l
+
+	return &copy
 }
