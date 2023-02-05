@@ -7,4 +7,5 @@ use (
 	./hutool-log
 	./hutool-errors
 	./hutool-jwt
+	./hutool-net
 )

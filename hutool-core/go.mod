@@ -4,8 +4,10 @@ go 1.19
 
 require (
 	github.com/gosuri/uitable v0.0.4
+	github.com/nine-monsters/go-hutool/hutool-net v0.0.0-20221114071007-b6e35b03dda8
+	github.com/nine-monsters/snowflake v0.0.1
+	github.com/speps/go-hashids v2.0.0+incompatible
 	github.com/spf13/pflag v1.0.5
-	golang.org/x/text v0.4.0
 )
 
 require (
