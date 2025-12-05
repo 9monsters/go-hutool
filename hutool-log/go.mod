@@ -3,7 +3,7 @@ module github.com/nine-monsters/go-hutool/hutool-log
 go 1.18
 
 require (
-	github.com/sirupsen/logrus v1.9.0
+	github.com/sirupsen/logrus v1.9.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/zap v1.22.0
